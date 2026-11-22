@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><TargetFramework>net10.0</TargetFramework><IsTestProject>true</IsTestProject><IsPackable>false</IsPackable></PropertyGroup>
+ <ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1"/><PackageReference Include="xunit" Version="2.9.3"/><PackageReference Include="xunit.runner.visualstudio" Version="3.1.5"><PrivateAssets>all</PrivateAssets></PackageReference><ProjectReference Include="../../src/LidarViewer.Core/LidarViewer.Core.csproj"/></ItemGroup>
+ <ItemGroup><Compile Include="../../src/LidarViewer.Visualization/DistanceRings.cs" Link="DistanceRings.cs"/></ItemGroup>
+ <ItemGroup><Compile Include="../../src/LidarViewer.Desktop/PlaybackClock.cs" Link="PlaybackClock.cs"/></ItemGroup>
+ <ItemGroup><Compile Include="../../src/LidarViewer.Visualization/PointColoring.cs" Link="PointColoring.cs"/></ItemGroup>
+</Project>

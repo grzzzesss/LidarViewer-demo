@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/LidarViewer.Core/LidarViewer.Core.csproj" />
+    <Project Path="src/LidarViewer.Visualization/LidarViewer.Visualization.csproj" />
+    <Project Path="src/LidarViewer.Desktop/LidarViewer.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/"><Project Path="tests/LidarViewer.Core.Tests/LidarViewer.Core.Tests.csproj" /></Folder>
+</Solution>

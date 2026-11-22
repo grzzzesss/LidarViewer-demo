@@ -1,0 +1,14 @@
+<UserControl x:Class="LidarViewer.Visualization.PointCloudView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:h="http://helix-toolkit.org/wpf/SharpDX">
+ <h:Viewport3DX x:Name="Viewport" BackgroundColor="#202020" ShowCoordinateSystem="True" ShowViewCube="True"
+  ModelUpDirection="0,0,1" CameraMode="Inspect" CameraRotationMode="Turntable"
+  RotateAroundMouseDownPoint="False" IsInertiaEnabled="False" PreviewMouseDown="Viewport_PreviewMouseDown">
+  <h:Viewport3DX.Camera><h:PerspectiveCamera Position="12,-16,12" LookDirection="-12,16,-10" UpDirection="0,0,1" NearPlaneDistance="0.1" FarPlaneDistance="1000" /></h:Viewport3DX.Camera>
+  <h:LineGeometryModel3D x:Name="DistanceRingModel" Visibility="Collapsed" Color="#3B808080" Thickness="1" IsHitTestVisible="False" />
+  <h:PointGeometryModel3D x:Name="Cloud" Color="#D0D0D0" Size="2,2" IsHitTestVisible="True" HitTestThickness="8" />
+  <h:LineGeometryModel3D x:Name="MeasurementLine" Color="Magenta" Thickness="2" IsHitTestVisible="False" />
+  <h:PointGeometryModel3D x:Name="SelectedPoint" Color="Magenta" Size="13,13" IsHitTestVisible="False" />
+ </h:Viewport3DX>
+</UserControl>

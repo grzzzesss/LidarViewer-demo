@@ -1,0 +1,185 @@
+<Window x:Class="LidarViewer.Desktop.MainWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:v="clr-namespace:LidarViewer.Visualization;assembly=LidarViewer.Visualization"
+ Title="LidarViewer - prototyp" Width="1100" Height="700" MinWidth="850" MinHeight="560"
+ Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
+ Closing="Window_Closing">
+ <DockPanel Margin="6">
+  <StatusBar DockPanel.Dock="Bottom" Margin="0,6,0,0">
+   <StatusBarItem HorizontalContentAlignment="Stretch">
+    <TextBlock x:Name="Status" Text="Gotowy. Otwórz plik lub uruchom symulację."/>
+   </StatusBarItem>
+  </StatusBar>
+  <ScrollViewer DockPanel.Dock="Left" Width="220" Margin="0,0,6,0"
+                VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+   <StackPanel>
+    <GroupBox Header="Widok" Padding="6" Margin="0,0,0,8">
+     <UniformGrid Columns="4">
+      <ToggleButton x:Name="View3D" Content="3D" Tag="3D" IsChecked="True" Click="View_Click" Padding="4"/>
+      <ToggleButton x:Name="ViewXY" Content="XY" Tag="XY" Click="View_Click" Padding="4"/>
+      <ToggleButton x:Name="ViewXZ" Content="XZ" Tag="XZ" Click="View_Click" Padding="4"/>
+      <ToggleButton x:Name="ViewYZ" Content="YZ" Tag="YZ" Click="View_Click" Padding="4"/>
+     </UniformGrid>
+    </GroupBox>
+    <GroupBox Header="Filtry" Padding="6" Margin="0,0,0,8">
+     <StackPanel>
+      <ComboBox x:Name="ColorMode" SelectedIndex="0" SelectionChanged="ColorMode_Changed">
+       <ComboBoxItem Content="Odległość" Tag="Distance"/>
+       <ComboBoxItem Content="Wysokość Z" Tag="Height"/>
+       <ComboBoxItem Content="Intensywność" Tag="Intensity"/>
+       <ComboBoxItem Content="RGB z pliku" Tag="Rgb"/>
+       <ComboBoxItem Content="Jednolity" Tag="Solid"/>
+      </ComboBox>
+      <TextBlock x:Name="ColorLegend" Text="Niebieski: 0 m, zielony: 15 m, czerwony: 30 m i dalej."/>
+     </StackPanel>
+    </GroupBox>
+    <TextBlock x:Name="PointCount" Text="Punkty widoczne: 0 / 0" Margin="6,0,0,8"/>
+    <GroupBox Header="LiDAR LIVE" Padding="6" Margin="0,0,0,8">
+     <StackPanel>
+      <TextBlock Text="Lokalny IPv4 (0.0.0.0 = wszystkie)"/>
+      <ComboBox x:Name="LiveAddress" IsEditable="True" Text="0.0.0.0"/>
+      <TextBlock Text="Port pomiarowy UDP"/>
+      <TextBox x:Name="LivePort" Text="2368"/>
+      <WrapPanel>
+       <Button x:Name="ConnectLive" Content="Połącz Live" Click="ConnectLive_Click"/>
+       <Button x:Name="DisconnectLive" Content="Rozłącz" Click="DisconnectLive_Click" IsEnabled="False"/>
+      </WrapPanel>
+      <TextBlock x:Name="LiveStatus" Text="Rozłączono"/>
+      <TextBlock x:Name="LivePackets" Text="Poprawne: 0, odrzucone: 0"/>
+      <TextBlock x:Name="LivePoints" Text="Ostatnia odebrana chmura: 0 pkt"/>
+      <TextBlock x:Name="LiveSender" Text="Nadawca: —"/>
+      <TextBlock x:Name="LiveError"/>
+     </StackPanel>
+    </GroupBox>
+    <GroupBox Header="Filtry" Padding="6" Margin="0,0,0,8">
+     <StackPanel>
+      <CheckBox x:Name="EnableDistanceFilter" Content="Włącz filtr odległości" IsChecked="False" Checked="FilterSettings_Changed" Unchecked="FilterSettings_Changed"/>
+      <TextBlock Text="Odległość minimalna [m]"/>
+      <TextBox x:Name="FilterMinimum" Text="0" TextChanged="FilterSettings_Changed"/>
+      <TextBlock Text="Odległość maksymalna [m]"/>
+      <TextBox x:Name="FilterMaximum" Text="20" TextChanged="FilterSettings_Changed"/>
+      <Separator Margin="0,8"/>
+      <CheckBox x:Name="EnableHeightFilter" Content="Filtr wysokości" IsChecked="False" Checked="FilterSettings_Changed" Unchecked="FilterSettings_Changed"/>
+      <TextBlock Text="Minimalna wysokość [m]"/>
+      <TextBox x:Name="HeightMinimum" Text="-1" TextChanged="FilterSettings_Changed"/>
+      <TextBlock Text="Maksymalna wysokość [m]"/>
+      <TextBox x:Name="HeightMaximum" Text="3" TextChanged="FilterSettings_Changed"/>
+      <Separator Margin="0,8"/>
+      <CheckBox x:Name="EnableIntensityFilter" Content="Filtr intensywności" IsChecked="False" Checked="FilterSettings_Changed" Unchecked="FilterSettings_Changed"/>
+      <TextBlock Text="Minimalna intensywność (0–255)"/>
+      <TextBox x:Name="IntensityMinimum" Text="0" TextChanged="FilterSettings_Changed"/>
+      <TextBlock Text="Maksymalna intensywność (0–255)"/>
+      <TextBox x:Name="IntensityMaximum" Text="255" TextChanged="FilterSettings_Changed"/>
+      <TextBlock x:Name="IntensityInfo"/>
+      <TextBlock x:Name="FilterMessage"/>
+      <Button Content="Resetuj wszystkie filtry" Click="ResetFilter_Click"/>
+     </StackPanel>
+    </GroupBox>
+    <GroupBox Header="Pomiar od LiDAR-u (0,0,0)" Padding="6" Margin="0,0,0,8">
+     <StackPanel>
+      <Button x:Name="ToggleMeasurement" Content="Włącz pomiar" Click="ToggleMeasurement_Click"/>
+      <TextBlock x:Name="MeasurementResult" Text="Pomiar wyłączony."/>
+     </StackPanel>
+    </GroupBox>
+    <GroupBox Header="Symulacja" Padding="6" Margin="0,0,0,8">
+     <StackPanel>
+      <TextBlock Text="Domek i podłoże (dane testowe)."/>
+      <WrapPanel>
+       <Button x:Name="StartSimulation" Content="Start" Click="StartSimulation_Click"/>
+       <Button x:Name="StopSimulation" Content="Stop" Click="StopSimulation_Click" IsEnabled="False"/>
+      </WrapPanel>
+      <TextBlock x:Name="SimulationStatus" Text="Symulacja: zatrzymana"/>
+     </StackPanel>
+    </GroupBox>
+    <GroupBox Header="Okręgi odległości" Padding="6" Margin="0,0,0,8">
+     <StackPanel>
+      <CheckBox x:Name="ShowRings" Content="Pokaż okręgi odległości" IsChecked="False" Checked="RingSettings_Changed" Unchecked="RingSettings_Changed"/>
+      <TextBlock Text="Odstęp"/>
+      <ComboBox x:Name="RingSpacing" SelectedIndex="0" SelectionChanged="RingSettings_Changed">
+       <ComboBoxItem Content="1 m" Tag="1"/>
+       <ComboBoxItem Content="5 m" Tag="5"/>
+       <ComboBoxItem Content="10 m" Tag="10"/>
+      </ComboBox>
+     </StackPanel>
+    </GroupBox>
+    <GroupBox Header="Sterowanie widokiem" Padding="6">
+     <StackPanel>
+      <TextBlock Text="PPM - obrót"/>
+      <TextBlock Text="Shift + PPM - przesuwanie"/>
+      <TextBlock Text="Kółko myszy - przybliżanie"/>
+     </StackPanel>
+    </GroupBox>
+   </StackPanel>
+  </ScrollViewer>
+  <Grid>
+   <Grid.RowDefinitions>
+    <RowDefinition Height="*"/>
+    <RowDefinition Height="Auto"/>
+   </Grid.RowDefinitions>
+   <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="1">
+    <v:PointCloudView x:Name="Scene"/>
+   </Border>
+   <Border Grid.Row="1" Padding="0,4,0,0">
+    <StackPanel>
+     <StackPanel.Resources>
+      <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+       <Setter Property="Margin" Value="0,2,4,2"/>
+       <Setter Property="Padding" Value="6,2"/>
+       <Setter Property="MinWidth" Value="30"/>
+      </Style>
+     </StackPanel.Resources>
+     <Grid>
+      <Grid.ColumnDefinitions>
+       <ColumnDefinition Width="*"/>
+       <ColumnDefinition Width="Auto"/>
+       <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <Slider x:Name="Timeline" Minimum="0" Maximum="1" Value="0" IsEnabled="False"
+              IsMoveToPointEnabled="True" VerticalAlignment="Center" Margin="0,0,8,0"
+              ToolTip="Przewiń nagranie — odtwarzanie zostanie wstrzymane"
+              ValueChanged="Timeline_ValueChanged"
+              PreviewMouseLeftButtonDown="Timeline_PreviewMouseLeftButtonDown"
+              PreviewMouseLeftButtonUp="Timeline_PreviewMouseLeftButtonUp"
+              LostMouseCapture="Timeline_LostMouseCapture"/>
+      <TextBlock Grid.Column="1" x:Name="PlaybackTime" Text="00:00 / 00:00" VerticalAlignment="Center" Margin="0"/>
+      <TextBlock Grid.Column="2" x:Name="FrameCounter" Text="Klatka: 0 / 0" VerticalAlignment="Center" Margin="10,0,0,0"/>
+     </Grid>
+     <Grid>
+      <Grid.ColumnDefinitions>
+       <ColumnDefinition Width="Auto"/>
+       <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <StackPanel Orientation="Horizontal">
+       <Button x:Name="OpenFile" Content="Otwórz plik" Click="OpenFile_Click"/>
+       <Button x:Name="SaveCloud" Content="Zrób zrzut do pliku .ply" Click="SaveCloud_Click"/>
+       <Button x:Name="PreviousFrame" Content="‹" ToolTip="Poprzednia klatka" AutomationProperties.Name="Poprzednia klatka" Click="PreviousFrame_Click" IsEnabled="False"/>
+       <Button x:Name="PauseCapture" Content="Pauza/Start" ToolTip="Wstrzymaj lub wznów odtwarzanie nagrania" Click="PauseCapture_Click" IsEnabled="False"/>
+       <Button x:Name="NextFrame" Content="›" ToolTip="Następna klatka" AutomationProperties.Name="Następna klatka" Click="NextFrame_Click" IsEnabled="False"/>
+       <ComboBox x:Name="PlaybackSpeed" SelectedIndex="1" IsEnabled="False" MinWidth="56"
+                 Margin="2,2,4,2" VerticalContentAlignment="Center" ToolTip="Szybkość odtwarzania PCAP"
+                 SelectionChanged="PlaybackSpeed_Changed">
+        <ComboBoxItem Content="0,5×" Tag="0.5"/>
+        <ComboBoxItem Content="1×" Tag="1"/>
+        <ComboBoxItem Content="2×" Tag="2"/>
+        <ComboBoxItem Content="4×" Tag="4"/>
+       </ComboBox>
+      </StackPanel>
+      <TextBlock Grid.Column="1" x:Name="FileStatus" Text="Nie otwarto pliku."
+                 VerticalAlignment="Center" Margin="6,0,0,0" TextWrapping="NoWrap"
+                 TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+     </Grid>
+     <TextBlock x:Name="SaveStatus">
+      <TextBlock.Style>
+       <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+        <Style.Triggers>
+         <Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed"/></Trigger>
+        </Style.Triggers>
+       </Style>
+      </TextBlock.Style>
+     </TextBlock>
+    </StackPanel>
+   </Border>
+  </Grid>
+ </DockPanel>
+</Window>
