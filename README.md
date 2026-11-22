@@ -219,10 +219,13 @@ dotnet test LidarViewer.slnx -c Release --no-build
 dotnet run --project src/LidarViewer.Desktop -c Release --no-build
 ```
 
-W MainWindow.xaml.cs metoda OpenStartupCapture zawiera lokalną ścieżkę nagrania
-testowego. Jeśli plik istnieje, odtwarzanie zaczyna się automatycznie po pokazaniu
-okna. Na innym komputerze można użyć przycisku „Otwórz plik” albo dostosować
-tę ścieżkę.
+Po uruchomieniu demo automatycznie otwiera samples/demo.pcap — około
+10-sekundowy fragment nagrania Depot 10Hz Single Returns z VLP-16.
+Próbka jest częścią repozytorium i ma rozmiar poniżej limitu GitHub.
+Projekt kopiuje ją do katalogu aplikacji podczas budowania oraz publikowania.
+Ścieżka jest wyznaczana względem AppContext.BaseDirectory, dzięki czemu działa
+po pobraniu projektu do dowolnego folderu. Pełne nagranie źródłowe pozostaje
+w oryginalnej lokalizacji poza repozytorium demo.
 
 ## Obsługa
 

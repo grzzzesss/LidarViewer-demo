@@ -167,7 +167,7 @@ public partial class MainWindow : Window
         if (closing || fileCancellation != null || captureCancellation != null ||
             simulationCancellation != null || liveCancellation != null) return;
 
-        const string path = @"C:\Users\grzeg\OneDrive\Dokumenty\studia\semestr 7\ZAJECIA\Projekt Grupowy\z pendrive\VLP-16 Sample Data\2015-07-23-15-08-34_Velodyne-VLP-16-Data_Depot 10Hz Single Returns.pcap";
+        string path = Path.Combine(AppContext.BaseDirectory, "samples", "demo.pcap");
         if (!File.Exists(path))
         {
             Status.Text = "Nie znaleziono nagrania startowego. Wybierz plik przyciskiem Otwórz plik.";
