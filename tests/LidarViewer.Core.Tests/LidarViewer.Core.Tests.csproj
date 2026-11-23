@@ -4,4 +4,4 @@
  <ItemGroup><Compile Include="../../src/LidarViewer.Visualization/DistanceRings.cs" Link="DistanceRings.cs"/></ItemGroup>
  <ItemGroup><Compile Include="../../src/LidarViewer.Desktop/PlaybackClock.cs" Link="PlaybackClock.cs"/></ItemGroup>
  <ItemGroup><Compile Include="../../src/LidarViewer.Visualization/PointColoring.cs" Link="PointColoring.cs"/></ItemGroup>
-</Project>
+<ItemGroup><Content Include="../../samples/demo.pcap" Link="samples/demo.pcap" CopyToOutputDirectory="PreserveNewest"/></ItemGroup></Project>

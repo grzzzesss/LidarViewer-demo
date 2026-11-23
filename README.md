@@ -27,10 +27,10 @@ dotnet list LidarViewer.slnx package --include-transitive
 
 Rozwiązanie LidarViewer.slnx zawiera cztery projekty:
 
-- Core — model punktu, dekoder VLP-16, PCAP, import i eksport, filtry, pomiar oraz odbiór i nagrywanie Live.
-- Visualization — chmura, kolory, kamera, wskazywanie punktów, linia pomiaru i okręgi.
-- Desktop — okno WPF, przyciski, wybór plików i sterowanie źródłami danych.
-- Core.Tests — testy logiki i lokalnego odbioru UDP. Nie uruchamiają okna WPF.
+- Core - model punktu, dekoder VLP-16, PCAP, import i eksport, filtry, pomiar oraz odbiór i nagrywanie Live.
+- Visualization - chmura, kolory, kamera, wskazywanie punktów, linia pomiaru i okręgi.
+- Desktop - okno WPF, przyciski, wybór plików i sterowanie źródłami danych.
+- Core.Tests - testy logiki i lokalnego odbioru UDP. Nie uruchamiają okna WPF.
 
 Przykładowe dane są w samples, a lokalny nadajnik testowy w tools.
 Odczyt, filtrowanie i przygotowanie geometrii działają w tle. Przypisanie
@@ -46,7 +46,7 @@ najnowszą gotową chmurę, więc nie zbiera zaległych klatek.
 - Kamera 3D, widoki XY/XZ/YZ i kolor według odległości, wysokości, intensywności, RGB albo jednolicie na niebiesko.
 - Łączone filtry odległości, wysokości i intensywności.
 - Wskazanie punktu, współrzędne i odległość przestrzenna od LiDAR-u, znacznik i linia pomiaru.
-- Przybliżone śledzenie najbliższego punktu między klatkami, w granicy 2 m od poprzedniej pozycji.
+- Przybliżone śledzenie lokalnego fragmentu powierzchni: dopasowanie do 24 sąsiednich próbek i przewidywanie przesunięcia. Znacznik wskazuje rzeczywisty punkt bieżącej klatki; brak dopasowania kończy pomiar bez zamrażania starej pozycji.
 - Okręgi w XY co 1, 5 lub 10 m, domyślnie wyłączone, z kryciem 23%.
 - Symulacja domku z podłożem, odbiór Live i nagrywanie do PCAP.
 
@@ -114,7 +114,7 @@ poprawny nagłówek PCAP, ale nie ma w nim pomiarów do odtworzenia.
 
 ## Testy i ograniczenia
 
-Weryfikacja z 23.11.2026: Release bez błędów i ostrzeżeń, 140/140 testów xUnit.
+Weryfikacja z 23.11.2026: Release bez błędów i ostrzeżeń, 151/151 testów xUnit.
 Testy obejmują import ASCII/binarny, eksport z ponownym odczytem, filtry,
 pomiar, kolory, okręgi, dekodowanie, indeks PCAP, zegar odtwarzania i UDP.
 Sprawdzają również błędne pliki, anulowanie, zajęty port, restart odbiornika,
@@ -132,7 +132,7 @@ zamknięcie podczas pracy, 30-sekundowe nagranie fizycznego VLP-16 oraz porówna
 z VeloView. Testy logiki nie zastępują tych sprawdzeń.
 
 Nie obsługujemy PCAPNG, PLY big-endian i PCD binary_compressed. Śledzenie pomiaru
-jest przybliżone i może przejść na sąsiednią powierzchnię. Dla eksportu PLY/PCD
+dopasowuje lokalny kształt i przesunięcie do 1,5 m między klatkami; nie rozpoznaje tożsamości obiektu. Obrót, zasłonięcie i podobne powierzchnie mogą spowodować utratę lub błędne dopasowanie. Dla eksportu PLY/PCD
 punkty muszą mieć wspólne atrybuty; przy częściowym RGB/intensywności wybierz XYZ.
 Pakietów utraconych przed odbiorem przez aplikację nie można odzyskać.
 Nagłe przerwanie procesu może zostawić niekompletny plik. Płynność dużych chmur

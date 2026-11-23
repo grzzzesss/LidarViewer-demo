@@ -109,7 +109,11 @@ public partial class PointCloudView : UserControl, IDisposable
 
     public event Action<LidarPoint?>? MeasurementChanged;
     private bool measurementEnabled;
-    private LidarPoint? trackedPoint;
+    private readonly LidarViewer.Core.PointTracker tracker = new();
+    private LidarPoint? trackedPoint => tracker.Position;
+    private IReadOnlyList<LidarPoint>? trackingFrame;
+
+    public bool MeasurementLost { get; private set; }
 
     public void SetMeasurementEnabled(bool enabled)
     {
@@ -120,9 +124,11 @@ public partial class PointCloudView : UserControl, IDisposable
 
     public void ClearSelection() => ClearMeasurement();
 
-    private void ClearMeasurement()
+    private void ClearMeasurement(bool lost = false)
     {
-        trackedPoint = null;
+        MeasurementLost = lost;
+        tracker.Clear();
+        trackingFrame = null;
         SelectedPoint.Geometry = null;
         MeasurementLine.Geometry = null;
         MeasurementChanged?.Invoke(null);
@@ -145,12 +151,15 @@ public partial class PointCloudView : UserControl, IDisposable
         if (hit?.Tag is not int index || index < 0 || index >= displayed.Count)
             return;
 
+        tracker.Select(displayed[index], displayed);
+        trackingFrame = ringSource ?? displayed;
         ShowMeasurement(displayed[index]);
     }
 
     private void ShowMeasurement(LidarPoint point)
     {
-        trackedPoint = point;
+        MeasurementLost = false;
+
         SelectedPoint.Geometry = new PointGeometry3D
         {
             Positions = new Vector3Collection { new Vector3(point.X, point.Y, point.Z) }
@@ -170,27 +179,14 @@ public partial class PointCloudView : UserControl, IDisposable
 
     private void UpdateTracking(IReadOnlyList<LidarPoint> points)
     {
-        if (!measurementEnabled || trackedPoint is not { } previous) return;
-
-        // Dopasowanie przestrzenne między kolejnymi klatkami, maksymalnie 2 m.
-        double nearestSquared = 4;
-        LidarPoint? nearest = null;
-        foreach (var point in points)
-        {
-            double dx = (double)point.X - previous.X;
-            double dy = (double)point.Y - previous.Y;
-            double dz = (double)point.Z - previous.Z;
-            double squared = dx * dx + dy * dy + dz * dz;
-            if (squared > nearestSquared) continue;
-
-            nearestSquared = squared;
-            nearest = point;
-        }
-
-        if (nearest is { } matched)
+        var frame = ringSource ?? points;
+        if (!measurementEnabled || tracker.Position == null || ReferenceEquals(trackingFrame, frame)) return;
+        trackingFrame = frame;
+        tracker.Update(points);
+        if (tracker.Position is { } matched)
             ShowMeasurement(matched);
-        else
-            ClearMeasurement();
+        else if (tracker.IsLost)
+            ClearMeasurement(lost: true);
     }
 
     private double ringSceneRadius = 10;

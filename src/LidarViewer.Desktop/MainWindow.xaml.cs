@@ -450,7 +450,7 @@ public partial class MainWindow : Window
         if (selected is not { } point)
         {
             MeasurementResult.Text = measurementEnabled
-                ? "Kliknij punkt lewym przyciskiem myszy."
+                ? Scene.MeasurementLost ? "Utracono punkt. Wskaż punkt ponownie." : "Kliknij punkt lewym przyciskiem myszy."
                 : "Pomiar wyłączony.";
             return;
         }
