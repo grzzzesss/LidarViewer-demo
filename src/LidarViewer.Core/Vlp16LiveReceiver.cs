@@ -16,6 +16,41 @@ public sealed class Vlp16LiveReceiver
     private Exception? error;
     private Channel<IReadOnlyList<Point3D>> frames = CreateChannel();
 
+    private readonly SemaphoreSlim recordingGate = new(1, 1);
+    private PcapRecorder? recording;
+    public PcapRecorder? Recording => Volatile.Read(ref recording);
+
+    public async Task StartRecordingAsync(string path, bool overwrite = false)
+    {
+        await recordingGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (Volatile.Read(ref listening) == 0)
+                throw new InvalidOperationException("Najpierw uruchom odbiór Live.");
+            if (Recording is { IsRecording: true })
+                throw new InvalidOperationException("Nagrywanie już trwa.");
+            if (Recording is { } previous) await previous.StopAsync().ConfigureAwait(false);
+            var next = await Task.Run(() => new PcapRecorder(path, overwrite)).ConfigureAwait(false);
+            if (Volatile.Read(ref listening) == 0)
+            {
+                await next.StopAsync().ConfigureAwait(false);
+                throw new InvalidOperationException("Live został rozłączony podczas otwierania pliku.");
+            }
+            Volatile.Write(ref recording, next);
+        }
+        finally { recordingGate.Release(); }
+    }
+
+    public async Task StopRecordingAsync()
+    {
+        await recordingGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (Recording is { } current) await current.StopAsync().ConfigureAwait(false);
+        }
+        finally { recordingGate.Release(); }
+    }
+
     public ChannelReader<IReadOnlyList<Point3D>> Frames => frames.Reader;
     public long ValidPackets => Interlocked.Read(ref validPackets);
     public long RejectedPackets => Interlocked.Read(ref rejectedPackets);
@@ -63,21 +98,42 @@ public sealed class Vlp16LiveReceiver
             using var client = new UdpClient(AddressFamily.InterNetwork);
             client.Client.ExclusiveAddressUse = true;
             client.Client.ReceiveBufferSize = 4 * 1024 * 1024;
+            client.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
             client.Client.Bind(new IPEndPoint(localAddress, port));
             Volatile.Write(ref listening, 1);
             var decoder = new Vlp16PacketDecoder();
+            var buffer = new byte[65535];
+            EndPoint sender = new IPEndPoint(IPAddress.Any, 0);
+            var headerAngles = new int[12];
             while (true)
             {
                 token.ThrowIfCancellationRequested();
-                var datagram = await client.ReceiveAsync(token).ConfigureAwait(false);
-                if (!decoder.TryDecodePacket(datagram.Buffer, out var completed))
+                var datagram = await client.Client.ReceiveMessageFromAsync(buffer.AsMemory(),
+                    SocketFlags.None, sender, token).ConfigureAwait(false);
+                var receivedAt = DateTimeOffset.UtcNow;
+                var payload = buffer.AsSpan(0, datagram.ReceivedBytes);
+                // Surowy pakiet trafia do nagrania przed dekodowaniem i filtrowaniem.
+                if (Recording is { IsRecording: true } recorder && payload.Length == 1206 &&
+                    Vlp16PacketDecoder.ReadPacketHeader(payload, headerAngles, out _))
+                {
+                    try
+                    {
+                        recorder.TryRecord(payload, (IPEndPoint)datagram.RemoteEndPoint,
+                            new IPEndPoint(datagram.PacketInformation.Address, port), receivedAt);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        recorder.Fail(new IOException("Nie odczytano adresów pakietu do nagrania.", ex));
+                    }
+                }
+                if (!decoder.TryDecodePacket(payload, out var completed))
                 {
                     Interlocked.Increment(ref rejectedPackets);
                     continue;
                 }
                 Interlocked.Increment(ref validPackets);
                 Interlocked.Exchange(ref lastValidAt, Environment.TickCount64);
-                Volatile.Write(ref lastSender, datagram.RemoteEndPoint.Address.ToString());
+                Volatile.Write(ref lastSender, ((IPEndPoint)datagram.RemoteEndPoint).Address.ToString());
                 foreach (var frame in completed)
                 {
                     Volatile.Write(ref lastPointCount, frame.Count);
@@ -94,6 +150,7 @@ public sealed class Vlp16LiveReceiver
         finally
         {
             Volatile.Write(ref listening, 0);
+            await StopRecordingAsync().ConfigureAwait(false);
             frames.Writer.TryComplete(error);
             Volatile.Write(ref running, 0);
         }

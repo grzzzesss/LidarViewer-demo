@@ -131,4 +131,16 @@ public sealed class CombinedFilterTests
         Assert.NotEmpty(visible);
         Assert.All(visible, point => { Assert.InRange(point.Z, 3.1f, 5); Assert.Equal(220, point.Intensity); });
     }
+    [Fact]
+    public void PassingCloudIsReusedAndLateRejectionPreservesPrefixAndOrder()
+    {
+        var points = new Point3D[] { new(1, 0, 0, 80), new(2, 0, 0, 90), new(3, 0, 0, 100) };
+        var settings = new PointCloudFilterSettings { DistanceEnabled = true, MaximumDistance = 5 };
+        Assert.Same(points, PointCloudFilter.Apply(points, settings));
+        var filtered = PointCloudFilter.Apply(points, settings with { MaximumDistance = 2 });
+        Assert.Equal(points.Take(2), filtered);
+        Assert.Equal(3, points.Length);
+        Assert.Equal(new[] { points[1] }, PointCloudFilter.Apply(points,
+            settings with { MinimumDistance = 2, MaximumDistance = 2 }));
+    }
 }

@@ -46,6 +46,92 @@ public partial class MainWindow : Window
         Interval = TimeSpan.FromMilliseconds(250)
     };
 
+    private bool recordingBusy;
+    private string? recordingStartError;
+    private Task recordingTask = Task.CompletedTask;
+    private PcapRecorder? lastRecording;
+
+    private void StartRecording_Click(object sender, RoutedEventArgs e)
+    {
+        var receiver = liveReceiver;
+        if (recordingBusy || closing || receiver == null || receiver.Recording is { IsRecording: true }) return;
+        var dialog = new SaveFileDialog
+        {
+            Title = "Nagraj dane Live do PCAP", Filter = "Nagranie PCAP (*.pcap)|*.pcap",
+            DefaultExt = ".pcap", AddExtension = true, OverwritePrompt = true,
+            FileName = $"VLP16_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.pcap"
+        };
+        if (dialog.ShowDialog(this) != true || closing || receiver != liveReceiver) return;
+        recordingBusy = true;
+        StartRecording.IsEnabled = StopRecording.IsEnabled = false;
+        recordingStartError = null;
+        recordingTask = StartRecordingAsync(receiver, dialog.FileName);
+    }
+
+    private async Task StartRecordingAsync(Vlp16LiveReceiver receiver, string path)
+    {
+        try
+        {
+            // SaveFileDialog potwierdził nadpisanie, otwarcie pliku odbywa się poza UI.
+            await receiver.StartRecordingAsync(path, overwrite: true);
+            lastRecording = receiver.Recording;
+        }
+        catch (Exception ex)
+        {
+            recordingStartError = $"Nie rozpoczęto nagrywania: {ex.Message}";
+        }
+        finally
+        {
+            recordingBusy = false;
+            RefreshRecordingStatus();
+        }
+    }
+
+    private void StopRecording_Click(object sender, RoutedEventArgs e)
+    {
+        if (recordingBusy || liveReceiver == null) return;
+        recordingBusy = true;
+        StartRecording.IsEnabled = StopRecording.IsEnabled = false;
+        RecordingStatus.Text = "Kończenie zapisu…";
+        recordingTask = StopRecordingAsync(liveReceiver);
+    }
+
+    private async Task StopRecordingAsync(Vlp16LiveReceiver receiver)
+    {
+        try { await receiver.StopRecordingAsync(); }
+        catch (Exception ex) { RecordingWarning.Text = $"Błąd kończenia zapisu: {ex.Message}"; }
+        finally
+        {
+            recordingBusy = false;
+            RefreshRecordingStatus();
+        }
+    }
+
+    private void RefreshRecordingStatus()
+    {
+        if (liveReceiver?.Recording is { } current) lastRecording = current;
+        bool listening = !closing && liveReceiver?.State is
+            LiveReceptionState.Listening or LiveReceptionState.Receiving or LiveReceptionState.NoData;
+        bool active = lastRecording?.IsRecording == true;
+        StartRecording.IsEnabled = listening && !active && !recordingBusy && (lastRecording?.IsCompleted ?? true);
+        StopRecording.IsEnabled = listening && active && !recordingBusy;
+        if (recordingStartError != null)
+        {
+            RecordingStatus.Text = recordingStartError;
+            return;
+        }
+        if (lastRecording is not { } recording || recordingBusy) return;
+        RecordingStatus.Foreground = recording.Error != null || active
+            ? System.Windows.Media.Brushes.DarkRed : System.Windows.Media.Brushes.DarkGreen;
+        RecordingStatus.Text = recording.Error != null
+            ? $"Błąd zapisu: {recording.Error.Message}. Plik może być niekompletny; spróbuj go otworzyć."
+            : active ? "● REC — nagrywanie" : !recording.IsCompleted ? "Kończenie zapisu…" : $"Zapisano: {Path.GetFileName(recording.Path)}";
+        RecordingStatistics.Text = $"Czas: {recording.Duration:hh\\:mm\\:ss} | Pakiety: {recording.WrittenPackets:N0} | {recording.WrittenBytes / 1048576.0:F2} MB";
+        RecordingWarning.Text = recording.DroppedPackets > 0 || (!active && recording.UnwrittenPackets > 0)
+            ? $"Niepełne nagranie! Przepełnienie kolejki: {recording.DroppedPackets:N0}; niezapisane przyjęte pakiety: {recording.UnwrittenPackets:N0}."
+            : "";
+    }
+
     private void ConnectLive_Click(object sender, RoutedEventArgs e)
     {
         if (liveCancellation != null || closing) return;
@@ -127,7 +213,9 @@ public partial class MainWindow : Window
             }
 
             if (token.IsCancellationRequested) LiveStatus.Text = "Rozłączono";
+            RefreshRecordingStatus();
             liveReceiver = null;
+            StartRecording.IsEnabled = StopRecording.IsEnabled = false;
             liveCancellation?.Dispose();
             liveCancellation = null;
             ConnectLive.IsEnabled = LiveAddress.IsEnabled = LivePort.IsEnabled = !closing;
@@ -138,6 +226,7 @@ public partial class MainWindow : Window
 
     private void RefreshLiveStatus()
     {
+        RefreshRecordingStatus();
         if (liveReceiver == null || closing) return;
         LiveStatus.Text = liveReceiver.State switch
         {
@@ -716,7 +805,11 @@ public partial class MainWindow : Window
             var points = await Task.Run(() => PointCloudFileReader.Read(path, token), token);
             token.ThrowIfCancellationRequested();
 
-            await DisplayFrameAsync(points);
+            if (!await DisplayFrameAsync(points))
+            {
+                if (!closing) Status.Text = "Nie zakończono wyświetlania chmury. Sprawdź komunikat przy filtrach lub otwórz plik ponownie.";
+                return;
+            }
             Scene.FitToCloud();
             FileStatus.Text = name;
             Status.Text = $"Otwarta chmura: {name}";
@@ -800,6 +893,7 @@ public partial class MainWindow : Window
         displayCancellation?.Cancel();
         await Task.Yield();
         await Task.WhenAll(simulationTask, captureTask, fileTask, saveTask, displayTask, liveTask);
+        await recordingTask;
         saveCancellation.Dispose();
         Scene.Dispose();
         allowClose = true;

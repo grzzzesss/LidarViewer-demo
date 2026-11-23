@@ -164,4 +164,69 @@ public sealed class Vlp16LiveReceiverTests
             await receiving;
         }
     }
+    [Fact]
+    public async Task WildcardAddressReceivesLastReturnPackets()
+    {
+        int port = FreePort();
+        var receiver = new Vlp16LiveReceiver();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var sender = new UdpClient();
+        var receiving = receiver.RunAsync(IPAddress.Any, port, cancellation.Token);
+        try
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                var packet = Packet(i);
+                packet[1204] = 0x38; // Last return z fizycznego VLP-16.
+                await sender.SendAsync(packet, new IPEndPoint(IPAddress.Loopback, port));
+            }
+            var frame = await receiver.Frames.ReadAsync(cancellation.Token);
+            Assert.Equal(30, frame.Count);
+            Assert.Equal(LiveReceptionState.Receiving, receiver.State);
+        }
+        finally
+        {
+            cancellation.Cancel();
+            await receiving;
+        }
+    }
+
+    [Fact]
+    public async Task MissingValidDataChangesStateAndReceptionRecovers()
+    {
+        int port = FreePort();
+        var receiver = new Vlp16LiveReceiver();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+        using var sender = new UdpClient();
+        var receiving = receiver.RunAsync(IPAddress.Loopback, port, cancellation.Token);
+        try
+        {
+            await sender.SendAsync(new byte[512], new IPEndPoint(IPAddress.Loopback, port));
+            while (receiver.State != LiveReceptionState.NoData)
+                await Task.Delay(20, cancellation.Token);
+            Assert.Equal(0, receiver.ValidPackets);
+            Assert.Equal(1, receiver.RejectedPackets);
+            await sender.SendAsync(Packet(0), new IPEndPoint(IPAddress.Loopback, port));
+            while (receiver.ValidPackets == 0)
+                await Task.Delay(5, cancellation.Token);
+            Assert.Equal(LiveReceptionState.Receiving, receiver.State);
+        }
+        finally
+        {
+            cancellation.Cancel();
+            await receiving;
+        }
+    }
+
+    [Fact]
+    public void RejectsDifferentSensorAndUnsupportedReturnMode()
+    {
+        var decoder = new Vlp16PacketDecoder();
+        var packet = Packet(0);
+        packet[1205] = 0x21;
+        Assert.False(decoder.TryDecodePacket(packet, out _));
+        packet[1205] = 0x22;
+        packet[1204] = 0;
+        Assert.False(decoder.TryDecodePacket(packet, out _));
+    }
 }

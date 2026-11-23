@@ -50,6 +50,12 @@
       <TextBlock x:Name="LivePoints" Text="Ostatnia odebrana chmura: 0 pkt"/>
       <TextBlock x:Name="LiveSender" Text="Nadawca: —"/>
       <TextBlock x:Name="LiveError"/>
+      <Separator Margin="0,6"/>
+      <Button x:Name="StartRecording" Content="Rozpocznij nagrywanie" Click="StartRecording_Click" IsEnabled="False"/>
+      <Button x:Name="StopRecording" Content="Zatrzymaj nagrywanie" Click="StopRecording_Click" IsEnabled="False"/>
+      <TextBlock x:Name="RecordingStatus" Text="Nagrywanie wyłączone" TextWrapping="Wrap"/>
+      <TextBlock x:Name="RecordingStatistics" Text="Czas: 00:00:00 | Pakiety: 0 | 0,00 MB" TextWrapping="Wrap"/>
+      <TextBlock x:Name="RecordingWarning" TextWrapping="Wrap" Foreground="DarkRed"/>
      </StackPanel>
     </GroupBox>
     <GroupBox Header="Filtry" Padding="6" Margin="0,0,0,8">

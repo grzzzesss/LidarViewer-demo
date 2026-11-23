@@ -29,13 +29,25 @@ public static class PointCloudFilter
         if (!settings.DistanceEnabled && !settings.HeightEnabled && !settings.IntensityEnabled)
             return points;
 
-        var visible = new List<Point3D>();
-        foreach (var point in points)
+        // Jeśli wszystkie punkty przechodzą filtry, wystarczy oryginalna chmura.
+        List<Point3D>? visible = null;
+        for (int index = 0; index < points.Count; index++)
         {
             token.ThrowIfCancellationRequested();
-            if (Matches(point, settings)) visible.Add(point);
+            var point = points[index];
+            if (Matches(point, settings))
+                visible?.Add(point);
+            else if (visible == null)
+            {
+                visible = new List<Point3D>(index);
+                for (int previous = 0; previous < index; previous++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    visible.Add(points[previous]);
+                }
+            }
         }
-        return visible.AsReadOnly();
+        return visible == null ? points : visible.AsReadOnly();
     }
 
     public static void Validate(PointCloudFilterSettings settings)
